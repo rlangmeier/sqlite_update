@@ -1,3 +1,3 @@
 # sqlite_update
 
-Update SQLite schema based on user_version information
+Upgrade SQLite schema based on user_version information
