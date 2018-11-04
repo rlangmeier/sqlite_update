@@ -21,7 +21,7 @@ user_version:
 
 """
 
-__version__ = '0.99'
+__version__ = '1.0'
 __author__ = 'Robert Langmeier'
 
 # %%

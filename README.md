@@ -1,4 +1,4 @@
-# sqlite_update
+# sqlite_upgrade
 
 This package allows you to automate create and update a database schema.
 
