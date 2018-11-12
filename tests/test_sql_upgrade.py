@@ -32,11 +32,33 @@ class TestSqliteUpgrade(unittest.TestCase):
         self.sql.search_sql_scripts('SchemaTest', 'tests_data')
         self.sql.create_migrate_db()
         self.assertEqual(self.sql.get_user_version(), 2)
+        
+    def test_create_update_2_1(self):
+        self.sql.search_sql_scripts('SchemaTest', 'tests_data')
+        self.sql.create_migrate_db()
+        self.assertFalse(self.sql.is_upgrade_available())
 
-    def test_create_update_2(self):
+    def test_create_update_2_2(self):
+        self.sql.search_sql_scripts('SchemaTest', 'tests_data')
+        self.sql.create_migrate_db()
+        self.sql.search_sql_scripts('SchemaTest', 'tests_data', sql_script_recurse=True)
+        self.assertTrue(self.sql.is_upgrade_available())
+
+    def test_create_update_3_1(self):
+        self.sql.search_sql_scripts('SchemaTest', 'tests_data')
+        self.sql.create_migrate_db()
+        self.assertFalse(self.sql.is_upgrade_mandatory())
+
+    def test_create_update_3_2(self):
+        self.sql.search_sql_scripts('SchemaTest', 'tests_data')
+        self.sql.create_migrate_db()
+        self.sql.search_sql_scripts('SchemaTest', 'tests_data', sql_script_recurse=True)
+        self.assertTrue(self.sql.is_upgrade_mandatory())
+
+    def test_create_update_4(self):
         self.sql.search_sql_scripts('SchemaTest', 'tests_data', sql_script_recurse=True)
         self.sql.create_migrate_db()
-        self.assertEqual(self.sql.get_user_version(), 4)
+        self.assertEqual(self.sql.get_user_version(), 5)
 
 
 if __name__ == "__main__":

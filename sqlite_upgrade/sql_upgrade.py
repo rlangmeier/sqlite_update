@@ -8,11 +8,11 @@ Based on
     https://levlaz.org/sqlite-db-migrations-with-pragma-user_version/
 
 Sql script file name format, proposed pattern:
-    ^(\d+)_(full|upgrade)_{schema_name}_(.*).sql$
+    ^(\d+)_(full|upgrade|mandatory)_{schema_name}_(.*).sql$
     
 Regex Groups:
     Version number
-    Type of script (full or upgrade)
+    Type of script (full, upgrade or mandatory)
     Schema or Db name (valid variable are: db_name, db_ext and schema_name)
     Description
 
@@ -82,14 +82,17 @@ class SqliteSchemaUpgrade:
 
     def get_user_version(self):
         """Return the version of the last executed SQL script"""
-        return self.conn.cursor().execute('PRAGMA user_version').fetchone()[0]
+        r = self.conn.cursor().execute('PRAGMA user_version').fetchone()
+        return r[0]
 
 
     def search_sql_scripts(self, schema_name,
                            sql_script_path,
                            sql_script_recurse=False,
-                           sql_script_pattern=r'^(\d+)_(full|upgrade)_{schema_name}_(.*).sql$'):
-        """Get the list of all SQL scripts in the path that follow the pattern definition
+                           sql_script_pattern=r'^(\d+)_(full|upgrade|mandatory)_{schema_name}_(.*).sql$'):
+        """Get the list of all SQL scripts in the path that follow the pattern definition.
+        Search recursivly in subdirectories if specified.
+        
         
         schema_name: database schema name
         sql_script_path: search SQL scripts in this path
@@ -134,12 +137,18 @@ class SqliteSchemaUpgrade:
         if len(set(lst_ver)) != len(lst_ver):
             raise Exception("Script versions are not unique")
 
+        # Check script types
+        set_types = set([r[2] for r in self.script_files])
+        if set_types.difference({'full','upgrade','mandatory'}):
+            raise Exception("Script types are only 'full', 'upgrade' or 'mandatory'")
+
         if self.script_files:
 
             # Check full script presence in the first place of the list
             if self.script_files[0][2] != 'full':
                 raise Exception("The first sql script should be a 'full' schema")
 
+            # Check that's only one full script type
             if len([r[0] for r in self.script_files if r[2] == 'full']) > 1:
                 raise Exception("Only one 'full' schema allowed")
 
@@ -148,12 +157,34 @@ class SqliteSchemaUpgrade:
             raise Exception("No SQL script found for '{}' pattern".format(pattern))
 
 
-    def create_migrate_db(self):
-        """Apply new SQL scripts based on user_version
-        """
+    def get_new_scripts(self):
+        
+        # Search scripts types to be executed
         user_version = self.get_user_version()
         scripts = [r for r in self.script_files if r[0] > user_version]
+        return scripts
 
+
+    def is_upgrade_mandatory(self):
+        
+        script_types = [r[2] for r in self.get_new_scripts()]
+        return 'mandatory' in script_types
+
+
+    def is_upgrade_available(self):
+        
+        len_scripts = len(self.get_new_scripts())
+        return len_scripts > 0
+
+
+    def create_migrate_db(self, exec_one=False):
+        """Apply new SQL scripts based on user_version
+        """
+        
+        # Search scripts to be executed
+        scripts = self.get_new_scripts()
+
+        # Iterate trough scripts and execute them
         for ver, file, schema, desc, path in scripts:
             
             log.debug("db='{}' apply='{}'".format(self.db_full_name, file))
@@ -169,3 +200,6 @@ class SqliteSchemaUpgrade:
 
                     # warning
                     log.warning("db='{}' '{}' doesn't update user_version correctly".format(self.db_full_name, file))
+            
+            if exec_one:
+                break
